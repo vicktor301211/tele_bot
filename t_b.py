@@ -5,8 +5,6 @@ import random
 API_TOKEN = '7662312242:AAFh2_ZenW8krULF-nCMn1bl7sGnxTP2hm0'
 
 
-
-
 # Создаем объект бота
 bot = TeleBot(API_TOKEN)
 
@@ -29,12 +27,17 @@ questions = {
     ]
 }
 
+
 # Обработчик команды /start
-@bot.message_handler(commands=['quiz'])
+@bot.message_handler(commands=['start'])
 def start(message):
     user_id = message.from_user.id
-    users[user_id] = {"name": message.from_user.first_name, "level": None, "points": 0, "current_question": 0}
-    bot.send_message(user_id, f"Приветствую тебя, {message.from_user.first_name}! Это викторина по истории. Выбери уровень сложности: 1, 2 или 3.", reply_markup=types.ForceReply(selective=True))
+    users[user_id] = {"name": message.from_user.first_name, "level": None, "points": 0, "current_question": 0,
+                      "current_question_info": None}
+    bot.send_message(user_id,
+                     f"Приветствую тебя, {message.from_user.first_name}! Это викторина по истории. Выбери уровень сложности: 1, 2 или 3.",
+                     reply_markup=types.ForceReply(selective=True))
+
 
 # Обработчик сообщений с выбором уровня сложности
 @bot.message_handler(func=lambda m: m.text.isdigit() and len(m.text) == 1 and m.reply_to_message is not None)
@@ -46,7 +49,9 @@ def set_level(message):
         bot.send_message(user_id, f"Твой уровень сложности: {level}. Начнем викторину!")
         ask_question(user_id)
     else:
-        bot.send_message(user_id, "Уровень сложности должен быть числом от 1 до 3. Попробуй еще раз:", reply_markup=types.ForceReply(selective=True))
+        bot.send_message(user_id, "Уровень сложности должен быть числом от 1 до 3. Попробуй еще раз:",
+                         reply_markup=types.ForceReply(selective=True))
+
 
 # Функция для задания вопроса
 def ask_question(user_id):
@@ -54,7 +59,10 @@ def ask_question(user_id):
     current_question = user_data["current_question"]
     level = user_data["level"]
     question, answer = random.choice(questions[level])
-    bot.send_message(user_id, f"Вопрос {current_question + 1}: {question}", reply_markup=types.ForceReply(selective=True))
+    user_data["current_question_info"] = (question, answer)
+    bot.send_message(user_id, f"Вопрос {current_question + 1}: {question}",
+                     reply_markup=types.ForceReply(selective=True))
+
 
 # Обработчик ответов на вопросы
 @bot.message_handler(func=lambda m: m.reply_to_message is not None)
@@ -62,9 +70,13 @@ def handle_answers(message):
     user_id = message.from_user.id
     user_data = users[user_id]
     current_question = user_data["current_question"]
-    level = user_data["level"]
-    question, answer = random.choice(questions[level])
-    if message.text.strip().lower() == answer.lower():
+    question, answer = user_data["current_question_info"]
+
+    # Удаляем лишние символы и приводим к нижнему регистру
+    user_answer = message.text.strip().lower()
+    correct_answer = answer.strip().lower()
+
+    if user_answer == correct_answer:
         user_data["points"] += 1
         bot.send_message(user_id, "Верно!")
     else:
@@ -74,6 +86,7 @@ def handle_answers(message):
         finish_quiz(user_id)
     else:
         ask_question(user_id)
+
 
 # Завершение викторины
 def finish_quiz(user_id):
@@ -86,7 +99,5 @@ def finish_quiz(user_id):
     else:
         bot.send_message(user_id, f"Увы, история не твой конек. Может, стоит попробовать снова?")
     del users[user_id]
-
-# Запуск бота
-if __name__ == "__main__":
-    bot.polling(none_stop=True)
+if __name__ == '__main__':
+    bot.polling(non_stop=True)
